@@ -130,7 +130,7 @@ func verifyPrint(filename string, ast1 *File) {
 		panic(err)
 	}
 
-	ast2, err := Parse(NewFileBase(filename), &buf1, nil, nil, 0)
+	ast2, err := ParseGo(NewFileBase(filename), &buf1, nil, nil, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -154,7 +154,7 @@ func verifyPrint(filename string, ast1 *File) {
 }
 
 func TestIssue17697(t *testing.T) {
-	_, err := Parse(nil, bytes.NewReader(nil), nil, nil, 0) // return with parser error, don't panic
+	_, err := ParseGo(nil, bytes.NewReader(nil), nil, nil, 0) // return with parser error, don't panic
 	if err == nil {
 		t.Errorf("no error reported")
 	}
@@ -302,7 +302,7 @@ func TestLineDirectives(t *testing.T) {
 		{"//line bar:1\n/*line :10:20*/", valid, "bar", 10, 20},
 	} {
 		base := NewFileBase(filename)
-		_, err := Parse(base, strings.NewReader(test.src), nil, nil, 0)
+		_, err := ParseGo(base, strings.NewReader(test.src), nil, nil, 0)
 		if err == nil {
 			t.Errorf("%s: no error reported", test.src)
 			continue

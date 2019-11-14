@@ -22,14 +22,17 @@ import (
 // The mode flags below control which comments are reported
 // by calling the error handler. If no flag is set, comments
 // are ignored.
+type CommentMode uint
+
 const (
-	comments   uint = 1 << iota // call handler for all comments
-	directives                  // call handler for directives only
+	rkNoComments  CommentMode = 0 << iota
+	rkAllComments             // call handler for all comments
+	rkDirectives              // call handler for directives only
 )
 
-type scanner struct {
+type rkScanner struct {
 	source
-	mode   uint
+	mode   CommentMode
 	nlsemi bool // if set '\n' and EOF translate to ';'
 
 	// current token, valid after calling next()
@@ -41,13 +44,13 @@ type scanner struct {
 	prec      int      // valid if tok is _Operator, _AssignOp, or _IncOp
 }
 
-func (s *scanner) init(src io.Reader, errh func(line, col uint, msg string), mode uint) {
+func (s *rkScanner) init(src io.Reader, errh func(line, col uint, msg string), mode CommentMode) {
 	s.source.init(src, errh)
 	s.mode = mode
 	s.nlsemi = false
 }
 
-func (s *scanner) errorf(format string, args ...interface{}) {
+func (s *rkScanner) errorf(format string, args ...interface{}) {
 	s.error(fmt.Sprintf(format, args...))
 }
 
@@ -71,7 +74,7 @@ func (s *scanner) errorf(format string, args ...interface{}) {
 // //-style comments are only recognized if they are at the beginning
 // of a line.
 //
-func (s *scanner) next() {
+func (s *rkScanner) next() {
 	nlsemi := s.nlsemi
 	s.nlsemi = false
 
@@ -324,11 +327,11 @@ assignop:
 	s.tok = _Operator
 }
 
-func isLetter(c rune) bool {
+func rkIsLetter(c rune) bool {
 	return 'a' <= lower(c) && lower(c) <= 'z' || c == '_'
 }
 
-func (s *scanner) ident() {
+func (s *rkScanner) ident() {
 	s.startLit()
 
 	// accelerate common case (7bit ASCII)
@@ -361,13 +364,13 @@ func (s *scanner) ident() {
 	s.tok = _Name
 }
 
-// tokStrFast is a faster version of token.String, which assumes that tok
+// rkTokStrFast is a faster version of token.String, which assumes that tok
 // is one of the valid tokens - and can thus skip bounds checks.
-func tokStrFast(tok token) string {
+func rkTokStrFast(tok token) string {
 	return _token_name[_token_index[tok-1]:_token_index[tok]]
 }
 
-func (s *scanner) isIdentRune(c rune, first bool) bool {
+func (s *rkScanner) isIdentRune(c rune, first bool) bool {
 	switch {
 	case unicode.IsLetter(c) || c == '_':
 		// ok
@@ -383,13 +386,13 @@ func (s *scanner) isIdentRune(c rune, first bool) bool {
 	return true
 }
 
-// hash is a perfect hash function for keywords.
+// rkHash is a perfect rkHash function for keywords.
 // It assumes that s has at least length 2.
-func hash(s []byte) uint {
+func rkHash(s []byte) uint {
 	return (uint(s[0])<<4 ^ uint(s[1]) + uint(len(s))) & uint(len(rkKeywordMap)-1)
 }
 
-var keywordMap [1 << 6]token // size must be power of two
+var rkKeywordMap [1 << 6]token // size must be power of two
 
 func init() {
 	// populate keywordMap
@@ -413,7 +416,7 @@ func isHex(c rune) bool     { return '0' <= c && c <= '9' || 'a' <= lower(c) && 
 // digits returns the first rune that is not part of the sequence
 // anymore, and a bitset describing whether the sequence contained
 // digits (bit 0 is set), or separators '_' (bit 1 is set).
-func (s *scanner) digits(c0 rune, base int, invalid *int) (c rune, digsep int) {
+func (s *rkScanner) digits(c0 rune, base int, invalid *int) (c rune, digsep int) {
 	c = c0
 	if base <= 10 {
 		max := rune('0' + base)
@@ -440,7 +443,7 @@ func (s *scanner) digits(c0 rune, base int, invalid *int) (c rune, digsep int) {
 	return
 }
 
-func (s *scanner) number(c rune) {
+func (s *rkScanner) number(c rune) {
 	s.startLit()
 
 	base := 10        // number base
@@ -583,7 +586,7 @@ func invalidSep(x string) int {
 	return -1
 }
 
-func (s *scanner) rune() {
+func (s *rkScanner) rune() {
 	s.startLit()
 
 	ok := true // only report errors if we're ok so far
@@ -630,7 +633,7 @@ func (s *scanner) rune() {
 	s.tok = _Literal
 }
 
-func (s *scanner) stdString() {
+func (s *rkScanner) stdString() {
 	s.startLit()
 
 	for {
@@ -659,7 +662,7 @@ func (s *scanner) stdString() {
 	s.tok = _Literal
 }
 
-func (s *scanner) rawString() {
+func (s *rkScanner) rawString() {
 	s.startLit()
 
 	for {
@@ -682,11 +685,11 @@ func (s *scanner) rawString() {
 	s.tok = _Literal
 }
 
-func (s *scanner) comment(text string) {
+func (s *rkScanner) comment(text string) {
 	s.errh(s.line, s.col, text)
 }
 
-func (s *scanner) skipLine(r rune) {
+func (s *rkScanner) skipLine(r rune) {
 	for r >= 0 {
 		if r == '\n' {
 			s.ungetr() // don't consume '\n' - needed for nlsemi logic
@@ -696,7 +699,7 @@ func (s *scanner) skipLine(r rune) {
 	}
 }
 
-func (s *scanner) lineComment() {
+func (s *rkScanner) lineComment() {
 	r := s.getr()
 
 	if s.mode&comments != 0 {
@@ -731,7 +734,7 @@ func (s *scanner) lineComment() {
 	s.comment("//" + prefix + string(s.stopLit()))
 }
 
-func (s *scanner) skipComment(r rune) bool {
+func (s *rkScanner) skipComment(r rune) bool {
 	for r >= 0 {
 		for r == '*' {
 			r = s.getr()
@@ -745,7 +748,7 @@ func (s *scanner) skipComment(r rune) bool {
 	return false
 }
 
-func (s *scanner) fullComment() {
+func (s *rkScanner) fullComment() {
 	r := s.getr()
 
 	if s.mode&comments != 0 {
@@ -782,7 +785,7 @@ func (s *scanner) fullComment() {
 	}
 }
 
-func (s *scanner) escape(quote rune) bool {
+func (s *rkScanner) escape(quote rune) bool {
 	var n int
 	var base, max uint32
 
