@@ -55,7 +55,7 @@ type PragmaHandler func(pos Pos, text string) Pragma
 //
 // If pragh != nil, it is called with each pragma encountered.
 //
-func Parse(base *PosBase, src io.Reader, errh ErrorHandler, pragh PragmaHandler, mode Mode) (_ *File, first error) {
+func ParseGo(base *PosBase, src io.Reader, errh ErrorHandler, pragh PragmaHandler, mode Mode) (_ *File, first error) {
 	defer func() {
 		if p := recover(); p != nil {
 			if err, ok := p.(Error); ok {
@@ -82,5 +82,5 @@ func ParseFile(filename string, errh ErrorHandler, pragh PragmaHandler, mode Mod
 		return nil, err
 	}
 	defer f.Close()
-	return Parse(NewFileBase(filename), f, errh, pragh, mode)
+	return ParseAny(filename, NewFileBase(filename), f, errh, pragh, mode)
 }
