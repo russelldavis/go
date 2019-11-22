@@ -126,6 +126,12 @@ var benchfile string
 
 var nowritebarrierrecCheck *nowritebarrierrecChecker
 
+func debugAfterPhase(phase int) {
+	if Debug['z'] == phase {
+		dumplist(fmt.Sprintf("AST %v", phase), asNodes(xtop))
+	}
+}
+
 // Main parses flags and Go source files specified in the command-line
 // arguments, type-checks the parsed Go package, compiles functions to machine
 // code, and finally writes the compiled package definition to disk.
@@ -208,6 +214,7 @@ func Main(archInit func(*Arch)) {
 	objabi.Flagcount("S", "print assembly listing", &Debug['S'])
 	objabi.AddVersionFlag() // -V
 	objabi.Flagcount("W", "debug parse tree after type checking", &Debug['W'])
+	flag.IntVar(&Debug['z'], "z", -1, "dump the AST after phase <N>")
 	flag.StringVar(&asmhdr, "asmhdr", "", "write assembly header to `file`")
 	flag.StringVar(&buildid, "buildid", "", "record `id` as the build id in the export metadata")
 	flag.IntVar(&nBackendWorkers, "c", 1, "concurrency during compilation, 1 means no concurrency")
@@ -529,6 +536,7 @@ func Main(archInit func(*Arch)) {
 	//   to avoid cycles like #18640.
 	//   TODO(gri) Remove this again once we have a fix for #25838.
 	defercheckwidth()
+	debugAfterPhase(0)
 
 	// Don't use range--typecheck can add closures to xtop.
 	timings.Start("fe", "typecheck", "top1")
@@ -538,6 +546,7 @@ func Main(archInit func(*Arch)) {
 			xtop[i] = typecheck(n, ctxStmt)
 		}
 	}
+	debugAfterPhase(1)
 
 	// Phase 2: Variable assignments.
 	//   To check interface assignments, depends on phase 1.
@@ -551,6 +560,7 @@ func Main(archInit func(*Arch)) {
 		}
 	}
 	resumecheckwidth()
+	debugAfterPhase(2)
 
 	// Phase 3: Type check function bodies.
 	// Don't use range--typecheck can add closures to xtop.
@@ -579,6 +589,7 @@ func Main(archInit func(*Arch)) {
 	checkMapKeys()
 	timings.AddEvent(fcount, "funcs")
 
+	debugAfterPhase(3)
 	if nsavederrors+nerrors != 0 {
 		errorexit()
 	}
@@ -597,6 +608,7 @@ func Main(archInit func(*Arch)) {
 
 	Curfn = nil
 
+	debugAfterPhase(4)
 	if nsavederrors+nerrors != 0 {
 		errorexit()
 	}
@@ -633,6 +645,7 @@ func Main(archInit func(*Arch)) {
 			}
 		})
 	}
+	debugAfterPhase(5)
 
 	// Phase 6: Escape analysis.
 	// Required for moving heap allocations onto stack,
@@ -652,6 +665,7 @@ func Main(archInit func(*Arch)) {
 	if compiling_runtime {
 		nowritebarrierrecCheck = newNowritebarrierrecChecker()
 	}
+	debugAfterPhase(6)
 
 	// Phase 7: Transform closure bodies to properly reference captured variables.
 	// This needs to happen before walk, because closures must be transformed
@@ -674,6 +688,7 @@ func Main(archInit func(*Arch)) {
 	// can be de-virtualized during compilation.
 	Curfn = nil
 	peekitabs()
+	debugAfterPhase(7)
 
 	// Phase 8: Compile top level functions.
 	// Don't use range--walk can add functions to xtop.
@@ -709,6 +724,7 @@ func Main(archInit func(*Arch)) {
 		Ctxt.DwFixups = nil
 		genDwarfInline = 0
 	}
+	debugAfterPhase(8)
 
 	// Phase 9: Check external declarations.
 	timings.Start("be", "externaldcls")
@@ -721,6 +737,8 @@ func Main(archInit func(*Arch)) {
 	// declarations.
 	checkMapKeys()
 
+
+	debugAfterPhase(9)
 	if nerrors+nsavederrors != 0 {
 		errorexit()
 	}
@@ -1339,6 +1357,7 @@ var concurrentFlagOK = [256]bool{
 	'l': true, // disable inlining
 	'w': true, // all printing happens before compilation
 	'W': true, // all printing happens before compilation
+	'z': true, // all printing happens before compilation
 	'S': true, // printing disassembly happens at the end (but see concurrentBackendAllowed below)
 }
 

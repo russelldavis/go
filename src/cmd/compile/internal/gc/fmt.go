@@ -495,8 +495,28 @@ func (n *Node) jconv(s fmt.State, flag FmtFlag) {
 		fmt.Fprint(s, " hascall")
 	}
 
-	if c == 0 && n.Name != nil && n.Name.Used() {
-		fmt.Fprint(s, " used")
+	if c == 0 && n.Name != nil {
+		if n.Name.Used() {
+			fmt.Fprint(s, " used")
+		}
+		if n.Name.Captured() {
+			fmt.Fprint(s, " captured")
+		}
+		if n.Name.Readonly() {
+			fmt.Fprint(s, " readonly")
+		}
+		if n.Name.Byval() {
+			fmt.Fprint(s, " byval")
+		}
+		if n.Name.Needzero() {
+			fmt.Fprint(s, " needzero")
+		}
+		if n.Name.Keepalive() {
+			fmt.Fprint(s, " keepalive")
+		}
+		if n.Name.AutoTemp() {
+			fmt.Fprint(s, " autotemp")
+		}
 	}
 }
 
