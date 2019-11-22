@@ -52,7 +52,6 @@ const (
 	_For         // for
 	_Func        // func
 	_Go          // go
-	_Goto        // goto
 	_If          // if
 	_Import      // import
 	_Interface   // interface
@@ -75,7 +74,6 @@ const (
 	Break       = _Break
 	Continue    = _Continue
 	Fallthrough = _Fallthrough
-	Goto        = _Goto
 
 	// for CallStmt
 	Go    = _Go

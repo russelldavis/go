@@ -276,7 +276,6 @@ const stopset uint64 = 1<<_Break |
 	1<<_Fallthrough |
 	1<<_For |
 	1<<_Go |
-	1<<_Goto |
 	1<<_If |
 	1<<_Return |
 	1<<_Select |
@@ -2107,14 +2106,6 @@ func (p *parser) stmtOrNil() Stmt {
 
 	case _Go, _Defer:
 		return p.callStmt()
-
-	case _Goto:
-		s := new(BranchStmt)
-		s.pos = p.pos()
-		s.Tok = _Goto
-		p.next()
-		s.Label = p.name()
-		return s
 
 	case _Return:
 		s := new(ReturnStmt)

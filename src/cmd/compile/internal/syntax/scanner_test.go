@@ -258,7 +258,6 @@ var sampleTokens = [...]struct {
 	{_For, "for", 0, 0},
 	{_Func, "func", 0, 0},
 	{_Go, "go", 0, 0},
-	{_Goto, "goto", 0, 0},
 	{_If, "if", 0, 0},
 	{_Import, "import", 0, 0},
 	{_Interface, "interface", 0, 0},

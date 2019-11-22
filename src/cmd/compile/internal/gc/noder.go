@@ -981,8 +981,6 @@ func (p *noder) stmtFall(stmt syntax.Stmt, fallOK bool) *Node {
 				yyerror("fallthrough statement out of place")
 			}
 			op = OFALL
-		case syntax.Goto:
-			op = OGOTO
 		default:
 			panic("unhandled BranchStmt")
 		}
