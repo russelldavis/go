@@ -289,7 +289,10 @@ func (p *noder) decls(decls []syntax.Decl) (l []*Node) {
 			p.importDecl(decl)
 
 		case *syntax.VarDecl:
-			l = append(l, p.varDecl(decl)...)
+			l = append(l, p.valueDecl(&decl.ValueDecl, /* isLet */ false)...)
+
+		case *syntax.LetDecl:
+			l = append(l, p.valueDecl(&decl.ValueDecl, /* isLet */ true)...)
 
 		case *syntax.ConstDecl:
 			l = append(l, p.constDecl(decl, &cs)...)
@@ -350,9 +353,8 @@ func (p *noder) importDecl(imp *syntax.ImportDecl) {
 	my.Block = 1 // at top level
 }
 
-func (p *noder) varDecl(decl *syntax.VarDecl) []*Node {
-	names := p.declNames(decl.NameList)
-	typ := p.typeExprOrNil(decl.Type)
+func (p *noder) valueDecl(decl *syntax.ValueDecl, isLet bool) []*Node {
+	typedNames := p.declTypedNames(decl.TypedNames)
 
 	var exprs []*Node
 	if decl.Values != nil {
@@ -360,7 +362,7 @@ func (p *noder) varDecl(decl *syntax.VarDecl) []*Node {
 	}
 
 	p.setlineno(decl)
-	return variter(names, typ, exprs)
+	return variter(typedNames.Names, typedNames.Types, exprs, isLet)
 }
 
 // constState tracks state between constant specifiers within a

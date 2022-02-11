@@ -64,6 +64,7 @@ const (
 	_Switch      // switch
 	_Type        // type
 	_Var         // var
+	_Let         // let
 
 	// empty line comment to exclude it from .String
 	tokenCount //

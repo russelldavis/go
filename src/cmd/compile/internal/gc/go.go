@@ -9,6 +9,7 @@ import (
 	"cmd/compile/internal/types"
 	"cmd/internal/obj"
 	"cmd/internal/src"
+	"strings"
 	"sync"
 )
 
@@ -44,9 +45,26 @@ func isRuntimePkg(p *types.Pkg) bool {
 // called declaration contexts.
 type Class uint8
 
+// //go:generate stringer -type=Class
+// const (
+// 	Pxxx      Class = iota // no class; used during ssa conversion to indicate pseudo-variables
+// 	PEXTERN                // global variable
+// 	PAUTO                  // local variables
+// 	PAUTOHEAP              // local variable or parameter moved to heap
+// 	PPARAM                 // input arguments
+// 	PPARAMOUT              // output results
+// 	PFUNC                  // global function
+//
+// 	PDISCARD // discard during parse of duplicate import
+// 	// Careful: Class is stored in three bits in Node.flags.
+// 	// Adding a new Class will overflow that.
+// )
+
+type Class2 uint8
+
 //go:generate stringer -type=Class
 const (
-	Pxxx      Class = iota // no class; used during ssa conversion to indicate pseudo-variables
+	Pxxx      Class2 = 1 << iota // no class; used during ssa conversion to indicate pseudo-variables
 	PEXTERN                // global variable
 	PAUTO                  // local variables
 	PAUTOHEAP              // local variable or parameter moved to heap
@@ -58,6 +76,27 @@ const (
 	// Careful: Class is stored in three bits in Node.flags.
 	// Adding a new Class will overflow that.
 )
+
+type Jhorff string
+
+func abc() {
+	type id string
+	a := id("a")
+	b := id("b")
+	c := a + b
+
+	var foo Class2 = PAUTO
+	var bar Class2 = PFUNC
+	var baz Class2 = foo + bar
+	var soo Jhorff = "aa"
+	var sar Jhorff = "bb"
+	var saz Jhorff = soo + sar
+	strings.Count(soo, "abc")
+	var jjj Jeff = saz
+	var str = "ssttrr"
+	var qqq Jhorff = str
+
+}
 
 func init() {
 	if PDISCARD != 7 {

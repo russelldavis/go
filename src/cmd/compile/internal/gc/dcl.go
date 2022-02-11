@@ -144,7 +144,7 @@ func addvar(n *Node, t *types.Type, ctxt Class) {
 
 // declare variables from grammar
 // new_name_list (type | [type] = expr_list)
-func variter(vl []*Node, t *Node, el []*Node) []*Node {
+func variter(vl []*Node, tl []*Node, el []*Node, isLet bool) []*Node {
 	var init []*Node
 	doexpr := len(el) > 0
 
@@ -153,11 +153,12 @@ func variter(vl []*Node, t *Node, el []*Node) []*Node {
 		as2 := nod(OAS2, nil, nil)
 		as2.List.Set(vl)
 		as2.Rlist.Set1(e)
-		for _, v := range vl {
+		for i, v := range vl {
 			v.Op = ONAME
 			declare(v, dclcontext)
-			v.Name.Param.Ntype = t
+			v.Name.Param.Ntype = tl[i]
 			v.Name.Defn = as2
+			v.Name.SetIsLet(isLet)
 			if Curfn != nil {
 				init = append(init, nod(ODCL, v, nil))
 			}
@@ -167,7 +168,7 @@ func variter(vl []*Node, t *Node, el []*Node) []*Node {
 	}
 
 	nel := len(el)
-	for _, v := range vl {
+	for i, v := range vl {
 		var e *Node
 		if doexpr {
 			if len(el) == 0 {
@@ -180,7 +181,8 @@ func variter(vl []*Node, t *Node, el []*Node) []*Node {
 
 		v.Op = ONAME
 		declare(v, dclcontext)
-		v.Name.Param.Ntype = t
+		v.Name.Param.Ntype = tl[i]
+		v.Name.SetIsLet(isLet)
 
 		if e != nil || Curfn != nil || v.isBlank() {
 			if Curfn != nil {

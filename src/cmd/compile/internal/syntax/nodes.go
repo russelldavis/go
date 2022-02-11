@@ -58,17 +58,6 @@ type (
 		decl
 	}
 
-	// NameList
-	// NameList      = Values
-	// NameList Type = Values
-	ConstDecl struct {
-		NameList []*Name
-		Type     Expr   // nil means no type
-		Values   Expr   // nil means no values
-		Group    *Group // nil means not part of a group
-		decl
-	}
-
 	// Name Type
 	TypeDecl struct {
 		Name   *Name
@@ -79,15 +68,23 @@ type (
 		decl
 	}
 
-	// NameList Type
-	// NameList Type = Values
-	// NameList      = Values
-	VarDecl struct {
-		NameList []*Name
-		Type     Expr   // nil means no type
-		Values   Expr   // nil means no values
-		Group    *Group // nil means not part of a group
+	ValueDecl struct {
+		TypedNames []*TypedName
+		Values Expr // nil means no values
+		Group *Group // nil means not part of a group
 		decl
+	}
+
+	ConstDecl struct {
+		ValueDecl
+	}
+
+	VarDecl struct {
+		ValueDecl
+	}
+
+	LetDecl struct {
+		ValueDecl
 	}
 
 	// func          Name Type { Body }
@@ -132,6 +129,13 @@ type (
 	// Value
 	Name struct {
 		Value string
+		expr
+	}
+
+	// Value
+	TypedName struct {
+		Name *Name
+		Type Expr // nil means no type
 		expr
 	}
 

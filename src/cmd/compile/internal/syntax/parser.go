@@ -170,20 +170,6 @@ func (p *parser) want(tok token) {
 	}
 }
 
-// gotAssign is like got(_Assign) but it also accepts ":="
-// (and reports an error) for better parser error recovery.
-func (p *parser) gotAssign() bool {
-	switch p.tok {
-	case _Define:
-		p.syntaxError("expecting =")
-		fallthrough
-	case _Assign:
-		p.next()
-		return true
-	}
-	return false
-}
-
 // ----------------------------------------------------------------------------
 // Error handling
 
@@ -281,7 +267,8 @@ const stopset uint64 = 1<<_Break |
 	1<<_Select |
 	1<<_Switch |
 	1<<_Type |
-	1<<_Var
+	1<<_Var |
+	1<<_Let
 
 // Advance consumes tokens until it finds a token of the stopset or followlist.
 // The stopset is only considered if we are inside a function (p.fnest > 0).
@@ -386,6 +373,10 @@ func (p *parser) fileOrNil() *File {
 			p.next()
 			f.DeclList = p.appendGroup(f.DeclList, p.typeDecl)
 
+		case _Let:
+			p.next()
+			f.DeclList = p.appendGroup(f.DeclList, p.letDecl)
+
 		case _Var:
 			p.next()
 			f.DeclList = p.appendGroup(f.DeclList, p.varDecl)
@@ -403,7 +394,7 @@ func (p *parser) fileOrNil() *File {
 			} else {
 				p.syntaxError("non-declaration statement outside function body")
 			}
-			p.advance(_Const, _Type, _Var, _Func)
+			p.advance(_Const, _Type, _Var, _Let, _Func)
 			continue
 		}
 
@@ -413,7 +404,7 @@ func (p *parser) fileOrNil() *File {
 
 		if p.tok != _EOF && !p.got(_Semi) {
 			p.syntaxError("after top level declaration")
-			p.advance(_Const, _Type, _Var, _Func)
+			p.advance(_Const, _Type, _Var, _Let, _Func)
 		}
 	}
 	// p.tok == _EOF
@@ -464,17 +455,23 @@ func (p *parser) list(open, sep, close token, f func() bool) Pos {
 	return pos
 }
 
-// appendGroup(f) = f | "(" { f ";" } ")" . // ";" is optional before ")"
-func (p *parser) appendGroup(list []Decl, f func(*Group) Decl) []Decl {
+func (p *parser) group(f func(*Group)) {
 	if p.tok == _Lparen {
 		g := new(Group)
 		p.list(_Lparen, _Semi, _Rparen, func() bool {
-			list = append(list, f(g))
+			f(g)
 			return false
 		})
 	} else {
-		list = append(list, f(nil))
+		f(nil)
 	}
+}
+
+// appendGroup(f) = f | "(" { f ";" } ")" . // ";" is optional before ")"
+func (p *parser) appendGroup(list []Decl, f func(*Group) Decl) []Decl {
+	p.group(func(g *Group) {
+		list = append(list, f(g))
+	})
 
 	if debug {
 		for _, d := range list {
@@ -515,27 +512,6 @@ func (p *parser) importDecl(group *Group) Decl {
 	return d
 }
 
-// ConstSpec = IdentifierList [ [ Type ] "=" ExpressionList ] .
-func (p *parser) constDecl(group *Group) Decl {
-	if trace {
-		defer p.trace("constDecl")()
-	}
-
-	d := new(ConstDecl)
-	d.pos = p.pos()
-
-	d.NameList = p.nameList(p.name())
-	if p.tok != _EOF && p.tok != _Semi && p.tok != _Rparen {
-		d.Type = p.typeOrNil()
-		if p.gotAssign() {
-			d.Values = p.exprList()
-		}
-	}
-	d.Group = group
-
-	return d
-}
-
 // TypeSpec = identifier [ "=" ] Type .
 func (p *parser) typeDecl(group *Group) Decl {
 	if trace {
@@ -546,7 +522,7 @@ func (p *parser) typeDecl(group *Group) Decl {
 	d.pos = p.pos()
 
 	d.Name = p.name()
-	d.Alias = p.gotAssign()
+	d.Alias = p.got(_Assign)
 	d.Type = p.typeOrNil()
 	if d.Type == nil {
 		d.Type = p.bad()
@@ -559,27 +535,48 @@ func (p *parser) typeDecl(group *Group) Decl {
 	return d
 }
 
-// VarSpec = IdentifierList ( Type [ "=" ExpressionList ] | "=" ExpressionList ) .
+func (p *parser) constDecl(group *Group) Decl {
+	if trace {
+		defer p.trace("constDecl")()
+	}
+	d := new(ConstDecl)
+	p.valueDecl(&d.ValueDecl, group)
+	return d
+}
+
 func (p *parser) varDecl(group *Group) Decl {
 	if trace {
 		defer p.trace("varDecl")()
 	}
-
 	d := new(VarDecl)
+	p.valueDecl(&d.ValueDecl, group)
+	return d
+}
+
+func (p *parser) letDecl(group *Group) Decl {
+	if trace {
+		defer p.trace("letDecl")()
+	}
+	d := new(LetDecl)
+	p.valueDecl(&d.ValueDecl, group)
+	return d
+}
+
+
+// var x: foo, y: bar = baz, qux
+// var x: foo, y: bar
+// var x, y = baz, qux
+// ILLEGAL: can't mix typed and untyped names on same line (it could easily be misinterpreted)
+// (We allow it to parse here; the error gets reported later (RK:TODO))
+// var x, y: bar = baz, qux
+func (p *parser) valueDecl(d *ValueDecl, group *Group) {
 	d.pos = p.pos()
 
-	d.NameList = p.nameList(p.name())
-	if p.gotAssign() {
+	d.TypedNames = p.typedNames(p.typedName())
+	if p.got(_Assign) {
 		d.Values = p.exprList()
-	} else {
-		d.Type = p.type_()
-		if p.gotAssign() {
-			d.Values = p.exprList()
-		}
 	}
 	d.Group = group
-
-	return d
 }
 
 // FunctionDecl = "func" FunctionName ( Function | Signature ) .
@@ -1321,6 +1318,7 @@ func (p *parser) addField(styp *StructType, pos Pos, name *Name, typ Expr, tag *
 	}
 }
 
+
 // FieldDecl      = (IdentifierList Type | AnonymousField) [ Tag ] .
 // AnonymousField = [ "*" ] TypeName .
 // Tag            = string_lit .
@@ -1331,24 +1329,24 @@ func (p *parser) fieldDecl(styp *StructType) {
 
 	pos := p.pos()
 	switch p.tok {
-	case _Name:
-		name := p.name()
-		if p.tok == _Dot || p.tok == _Literal || p.tok == _Semi || p.tok == _Rbrace {
-			// embed oliteral
-			typ := p.qualifiedName(name)
-			tag := p.oliteral()
-			p.addField(styp, pos, nil, typ, tag)
-			return
-		}
+	case _Let, _Var:
+		p.group(func(group *Group) {
+			decl := ValueDecl{}
+			p.valueDecl(&decl, group)
+			// RK:TODO: scan for tag attribute here
+			for _, typedName := range decl.TypedNames {
+				p.addField(styp, typedName.Pos(), typedName.Name, typedName.Type, nil)
+			}
+		})
 
-		// new_name_list ntype oliteral
-		names := p.nameList(name)
-		typ := p.type_()
-		tag := p.oliteral()
-
-		for _, name := range names {
-			p.addField(styp, name.Pos(), name, typ, tag)
-		}
+		// OLD: embed handling
+		// if p.tok == _Dot || p.tok == _Literal || p.tok == _Semi || p.tok == _Rbrace {
+		// 	// embed oliteral
+		// 	typ := p.qualifiedName(name)
+		// 	tag := p.oliteral()
+		// 	p.addField(styp, pos, nil, typ, tag)
+		// 	return
+		// }
 
 	case _Lparen:
 		p.next()
@@ -2055,6 +2053,9 @@ func (p *parser) stmtOrNil() Stmt {
 	case _Lbrace:
 		return p.blockStmt("")
 
+	case _Let:
+		return p.declStmt(p.letDecl)
+
 	case _Var:
 		return p.declStmt(p.varDecl)
 
@@ -2189,9 +2190,24 @@ func (p *parser) name() *Name {
 	return n
 }
 
-// IdentifierList = identifier { "," identifier } .
-// The first name must be provided.
-func (p *parser) nameList(first *Name) []*Name {
+func (p *parser) typedName() *TypedName {
+	name := p.name()
+
+	var type_ Expr
+	if p.got(_Colon) {
+		type_ = p.type_()
+	} else {
+		type_ = nil
+	}
+
+	return &TypedName{
+		Name: name,
+		Type: type_,
+	}
+}
+
+// The first typed name must be provided.
+func (p *parser) typedNames(first *TypedName) []*TypedName {
 	if trace {
 		defer p.trace("nameList")()
 	}
@@ -2200,9 +2216,9 @@ func (p *parser) nameList(first *Name) []*Name {
 		panic("first name not provided")
 	}
 
-	l := []*Name{first}
+	l := []*TypedName{first}
 	for p.got(_Comma) {
-		l = append(l, p.name())
+		l = append(l, p.typedName())
 	}
 
 	return l

@@ -944,7 +944,9 @@ func (r *importReader) node() *Node {
 		pos := r.pos()
 		lhs := npos(pos, dclname(r.ident()))
 		typ := typenod(r.typ())
-		return npos(pos, liststmt(variter([]*Node{lhs}, typ, nil))) // TODO(gri) avoid list creation
+		// RK-TODO: impl
+		isLet := false
+		return npos(pos, liststmt(variter([]*Node{lhs}, []*Node{typ}, nil, isLet))) // TODO(gri) avoid list creation
 
 	// case ODCLFIELD:
 	//	unimplemented

@@ -309,6 +309,7 @@ const (
 	nameKeepalive // mark value live across unknown assembly call
 	nameAutoTemp  // is the variable a temporary (implies no dwarf info. reset if escapes to heap)
 	nameUsed      // for variable declared and not used error
+	nameIsLet     // if this is a `let` declaration
 )
 
 func (n *Name) Captured() bool  { return n.flags&nameCaptured != 0 }
@@ -318,6 +319,7 @@ func (n *Name) Needzero() bool  { return n.flags&nameNeedzero != 0 }
 func (n *Name) Keepalive() bool { return n.flags&nameKeepalive != 0 }
 func (n *Name) AutoTemp() bool  { return n.flags&nameAutoTemp != 0 }
 func (n *Name) Used() bool      { return n.flags&nameUsed != 0 }
+func (n *Name) IsLet() bool     { return n.flags&nameIsLet != 0 }
 
 func (n *Name) SetCaptured(b bool)  { n.flags.set(nameCaptured, b) }
 func (n *Name) SetReadonly(b bool)  { n.flags.set(nameReadonly, b) }
@@ -326,6 +328,7 @@ func (n *Name) SetNeedzero(b bool)  { n.flags.set(nameNeedzero, b) }
 func (n *Name) SetKeepalive(b bool) { n.flags.set(nameKeepalive, b) }
 func (n *Name) SetAutoTemp(b bool)  { n.flags.set(nameAutoTemp, b) }
 func (n *Name) SetUsed(b bool)      { n.flags.set(nameUsed, b) }
+func (n *Name) SetIsLet(b bool)     { n.flags.set(nameIsLet, b) }
 
 type Param struct {
 	Ntype    *Node

@@ -349,10 +349,16 @@ func (p *printer) printRawNode(n Node) {
 		p.print(_Name, "<bad expr>")
 
 	case *Name:
-		p.print(_Name, n.Value) // _Name requires actual value following immediately
+		p.print(_Name, n.Value)
+
+	case *TypedName:
+		p.print(_Name, n.Name)
+		if n.Type != nil {
+			p.print(_Colon, blank, n.Type)
+		}
 
 	case *BasicLit:
-		p.print(_Name, n.Value) // _Name requires actual value following immediately
+		p.print(_Name, n.Value)
 
 	case *FuncLit:
 		p.print(n.Type, blank, n.Body)
@@ -606,17 +612,6 @@ func (p *printer) printRawNode(n Node) {
 		}
 		p.print(n.Path)
 
-	case *ConstDecl:
-		if n.Group == nil {
-			p.print(_Const, blank)
-		}
-		p.printNameList(n.NameList)
-		if n.Type != nil {
-			p.print(blank, n.Type)
-		}
-		if n.Values != nil {
-			p.print(blank, _Assign, blank, n.Values)
-		}
 
 	case *TypeDecl:
 		if n.Group == nil {
@@ -628,17 +623,14 @@ func (p *printer) printRawNode(n Node) {
 		}
 		p.print(n.Type)
 
+	case *ConstDecl:
+		p.printValueDecl(&n.ValueDecl, _Const)
+
 	case *VarDecl:
-		if n.Group == nil {
-			p.print(_Var, blank)
-		}
-		p.printNameList(n.NameList)
-		if n.Type != nil {
-			p.print(blank, n.Type)
-		}
-		if n.Values != nil {
-			p.print(blank, _Assign, blank, n.Values)
-		}
+		p.printValueDecl(&n.ValueDecl, _Var)
+
+	case *LetDecl:
+		p.printValueDecl(&n.ValueDecl, _Let)
 
 	case *FuncDecl:
 		p.print(_Func, blank)
@@ -680,6 +672,17 @@ func (p *printer) printRawNode(n Node) {
 		panic(fmt.Sprintf("syntax.Iterate: unexpected node type %T", n))
 	}
 }
+
+func (p *printer) printValueDecl(n *ValueDecl, tok token) {
+	if n.Group == nil {
+		p.print(tok, blank)
+	}
+	p.printTypedNames(n.TypedNames)
+	if n.Values != nil {
+		p.print(blank, _Assign, blank, n.Values)
+	}
+}
+
 
 func (p *printer) printFields(fields []*Field, tags []*BasicLit, i, j int) {
 	if i+1 == j && fields[i].Name == nil {
@@ -731,7 +734,7 @@ func (p *printer) printMethodList(methods []*Field) {
 	}
 }
 
-func (p *printer) printNameList(list []*Name) {
+func (p *printer) printTypedNames(list []*TypedName) {
 	for i, x := range list {
 		if i > 0 {
 			p.print(_Comma, blank)
